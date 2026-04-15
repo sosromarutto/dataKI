@@ -218,82 +218,174 @@ function renderChart(dataArray) {
     });
 }
 
-// Fungsi untuk menentukan warna provinsi berdasarkan jumlah pengaduan
-function getProvinceColor(jumlah) {
-    if (!jumlah || jumlah === 0) return '#1e293b'; // Default / no data (dark slate)
-    if (jumlah > 100) return '#1e3a8a'; // Paling banyak (biru sangat tua)
-    if (jumlah > 30)  return '#1d4ed8'; // Biru tua
-    if (jumlah > 10)  return '#2563eb'; // Biru sedang
-    if (jumlah > 5)   return '#3b82f6'; // Biru standar
-    if (jumlah > 0)   return '#60a5fa'; // Biru muda (paling sedikit)
+let mainMap, provinceLayer, regencyLayer;
+let nationalGeoJSON, regencyGeoJSON;
+
+// Mapping nama provinsi dari GeoJSON ke Data Excel
+function normalizedProvName(name) {
+    if (!name) return "";
+    const n = name.toUpperCase();
+    if (n.includes("JAKARTA RAYA")) return "DKI JAKARTA";
+    if (n.includes("YOGYAKARTA")) return "DI YOGYAKARTA";
+    return n;
+}
+
+// Fungsi untuk menentukan warna berdasarkan jumlah pengaduan
+function getColorScale(jumlah) {
+    if (!jumlah || jumlah === 0) return '#1e293b'; 
+    if (jumlah > 100) return '#1e3a8a'; 
+    if (jumlah > 30)  return '#1d4ed8'; 
+    if (jumlah > 10)  return '#2563eb'; 
+    if (jumlah > 5)   return '#3b82f6'; 
+    if (jumlah > 0)   return '#60a5fa'; 
     return '#1e293b';
 }
 
-// Fungsi untuk merender peta Indonesia menggunakan Leaflet
 function renderMap() {
-    const map = L.map('indonesiaMap', {
+    mainMap = L.map('indonesiaMap', {
         zoomControl: true,
         attributionControl: false,
-        scrollWheelZoom: false // Disable scroll wheel zoom for better page scrolling
+        scrollWheelZoom: false
     }).setView([-2.5489, 118.0148], 5);
 
-    // Fetch GeoJSON Indonesia
+    // Muat data Nasional (Provinsi)
     fetch('https://raw.githubusercontent.com/superpikar/indonesia-geojson/master/indonesia-province-simple.json')
-        .then(response => response.json())
+        .then(res => res.json())
         .then(data => {
-            L.geoJson(data, {
-                style: function(feature) {
-                    const provName = feature.properties.Propinsi ? feature.properties.Propinsi.toUpperCase() : '';
-                    const found = provinceData.find(p => p.provinsi === provName || provName.includes(p.provinsi) || p.provinsi.includes(provName));
-                    const jumlah = found ? found.jumlah : 0;
-                    return {
-                        fillColor: getProvinceColor(jumlah),
-                        weight: 1,
-                        opacity: 1,
-                        color: 'rgba(255, 255, 255, 0.2)', // Border antar provinsi
-                        fillOpacity: 0.9
-                    };
-                },
-                onEachFeature: function(feature, layer) {
-                    const provName = feature.properties.Propinsi || 'Tidak Diketahui';
-                    const upName = provName.toUpperCase();
-                    const found = provinceData.find(p => p.provinsi === upName || upName.includes(p.provinsi) || p.provinsi.includes(upName));
-                    const jumlah = found ? found.jumlah : 0;
-                    
-                    const popupContent = `<div style="text-align: center;">
-                        <strong style="font-size: 1.1em; color: #fff;">${provName}</strong><br/>
-                        <span style="color: #60a5fa; font-weight: bold; font-size: 1.2em;">${jumlah}</span><span style="color: #94a3b8;"> Pengaduan</span>
-                    </div>`;
-                    
-                    layer.bindTooltip(popupContent, {
-                        sticky: true,
-                        className: 'custom-tooltip',
-                        direction: 'top'
-                    });
-                    
-                    layer.on({
-                        mouseover: function(e) {
-                            const l = e.target;
-                            l.setStyle({
-                                weight: 2,
-                                color: '#fff',
-                                fillOpacity: 1
-                            });
-                            if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-                                l.bringToFront();
-                            }
-                        },
-                        mouseout: function(e) {
-                            // Reset style
-                            l.setStyle({
-                                weight: 1,
-                                color: 'rgba(255, 255, 255, 0.2)',
-                                fillOpacity: 0.9
-                            });
-                        }
-                    });
-                }
-            }).addTo(map);
+            nationalGeoJSON = data;
+            showNationalMap();
+        });
+
+    // Pre-fetch data Kabupaten
+    fetch('all-kabupaten.geojson')
+        .then(res => {
+            if (!res.ok) throw new Error("Gagal memuat detail kabupaten. Jalankan via server lokal (Live Server) agar fitur ini berfungsi.");
+            return res.json();
         })
-        .catch(err => console.error("Gagal memuat data peta: ", err));
+        .then(data => {
+            regencyGeoJSON = data;
+            console.log("Detail kabupaten berhasil dimuat.");
+        })
+        .catch(err => {
+            console.warn(err.message);
+            // Simpan flag bahwa data detail gagal dimuat
+            regencyGeoJSON = "FAILED";
+        });
 }
+
+function showNationalMap() {
+    if (provinceLayer) mainMap.removeLayer(provinceLayer);
+    if (regencyLayer) mainMap.removeLayer(regencyLayer);
+    document.getElementById('mapBackBtn').style.display = 'none';
+
+    mainMap.setView([-2.5489, 118.0148], 5);
+
+    provinceLayer = L.geoJson(nationalGeoJSON, {
+        style: function(feature) {
+            const name = normalizedProvName(feature.properties.Propinsi);
+            const found = provinceData.find(p => p.provinsi === name);
+            return {
+                fillColor: getColorScale(found ? found.jumlah : 0),
+                weight: 1, color: 'rgba(255, 255, 255, 0.2)', fillOpacity: 0.9
+            };
+        },
+        onEachFeature: function(feature, layer) {
+            const name = normalizedProvName(feature.properties.Propinsi);
+            const found = provinceData.find(p => p.provinsi === name);
+            const jumlah = found ? found.jumlah : 0;
+
+            layer.bindTooltip(`<strong>${name}</strong><br/>${jumlah} Pengaduan`, {
+                sticky: true, className: 'custom-tooltip', direction: 'top'
+            });
+
+            layer.on({
+                mouseover: (e) => { e.target.setStyle({ weight: 2, color: '#fff' }); },
+                mouseout: (e) => { e.target.setStyle({ weight: 1, color: 'rgba(255, 255, 255, 0.2)' }); },
+                click: (e) => { drillDown(feature, e.target); }
+            });
+        }
+    }).addTo(mainMap);
+}
+
+function drillDown(feature, layer) {
+    const provName = normalizedProvName(feature.properties.Propinsi);
+    
+    if (!regencyGeoJSON) {
+        alert("Sabar, data detail kabupaten sedang dimuat...");
+        return;
+    }
+
+    if (regencyGeoJSON === "FAILED") {
+        alert("Gagal memuat detail wilayah. \n\nHal ini biasanya terjadi jika Anda membuka file HTML secara langsung. Silakan jalankan menggunakan 'Live Server' atau server lokal lainnya.");
+        return;
+    }
+
+    if (provinceLayer) mainMap.removeLayer(provinceLayer);
+    document.getElementById('mapBackBtn').style.display = 'block';
+
+    // Filter features untuk provinsi ini
+    const filteredFeatures = regencyGeoJSON.features.filter(f => normalizedProvName(f.properties.NAME_1) === provName);
+
+    if (filteredFeatures.length === 0) {
+        alert("Batas wilayah detail untuk " + provName + " tidak ditemukan di data GeoJSON.");
+        showNationalMap();
+        return;
+    }
+
+    const filtered = {
+        type: "FeatureCollection",
+        features: filteredFeatures
+    };
+
+    mainMap.fitBounds(layer.getBounds(), { padding: [20, 20] });
+
+    regencyLayer = L.geoJson(filtered, {
+        style: function(f) {
+            const kabName = f.properties.NAME_2.toUpperCase();
+            const dataP = kabupatenData[provName] || {};
+            // Fuzzy match for KOTA/KAB
+            let foundData = dataP[kabName];
+            if (!foundData) {
+                const key = Object.keys(dataP).find(k => k.includes(kabName) || kabName.includes(k));
+                foundData = dataP[key];
+            }
+            return {
+                fillColor: getColorScale(foundData ? foundData.total : 0),
+                weight: 1, color: 'rgba(255, 255, 255, 0.3)', fillOpacity: 0.8
+            };
+        },
+        onEachFeature: function(f, l) {
+            const kabName = f.properties.NAME_2.toUpperCase();
+            const dataP = kabupatenData[provName] || {};
+            let foundKey = Object.keys(dataP).find(k => k.includes(kabName) || kabName.includes(k));
+            const foundData = dataP[foundKey];
+
+            let tooltipHtml = `<strong>${f.properties.NAME_2}</strong><br/>`;
+            if (foundData) {
+                tooltipHtml += `<span style="color:var(--accent-color); font-size:1.2em; font-weight:bold;">${foundData.total}</span> Pengaduan`;
+                tooltipHtml += `<div class="unit-detail">`;
+                for (const [unit, count] of Object.entries(foundData.units)) {
+                    tooltipHtml += `<div class="unit-item"><span>${unit}</span> <span>${count}</span></div>`;
+                }
+                tooltipHtml += `</div>`;
+            } else {
+                tooltipHtml += `0 Pengaduan`;
+            }
+
+            l.bindTooltip(tooltipHtml, { sticky: true, className: 'custom-tooltip', direction: 'top' });
+            l.on({
+                mouseover: (e) => { e.target.setStyle({ weight: 2, color: '#fff', fillOpacity: 1 }); },
+                mouseout: (e) => { e.target.setStyle({ weight: 1, color: 'rgba(255, 255, 255, 0.3)', fillOpacity: 0.8 }); }
+            });
+        }
+    }).addTo(mainMap);
+}
+
+function goBackToNational() {
+    showNationalMap();
+}
+
+// Initialize
+populateTable();
+updateChart();
+renderMap();
