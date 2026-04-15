@@ -248,29 +248,8 @@ function renderMap() {
         scrollWheelZoom: false
     }).setView([-2.5489, 118.0148], 5);
 
-    // Muat data Nasional (Provinsi)
-    fetch('https://raw.githubusercontent.com/superpikar/indonesia-geojson/master/indonesia-province-simple.json')
-        .then(res => res.json())
-        .then(data => {
-            nationalGeoJSON = data;
-            showNationalMap();
-        });
-
-    // Pre-fetch data Kabupaten
-    fetch('all-kabupaten.geojson')
-        .then(res => {
-            if (!res.ok) throw new Error("Gagal memuat detail kabupaten. Jalankan via server lokal (Live Server) agar fitur ini berfungsi.");
-            return res.json();
-        })
-        .then(data => {
-            regencyGeoJSON = data;
-            console.log("Detail kabupaten berhasil dimuat.");
-        })
-        .catch(err => {
-            console.warn(err.message);
-            // Simpan flag bahwa data detail gagal dimuat
-            regencyGeoJSON = "FAILED";
-        });
+    // Langsung tampilkan peta nasional (Data sudah dimuat via <script>)
+    showNationalMap();
 }
 
 function showNationalMap() {
@@ -280,7 +259,7 @@ function showNationalMap() {
 
     mainMap.setView([-2.5489, 118.0148], 5);
 
-    provinceLayer = L.geoJson(nationalGeoJSON, {
+    provinceLayer = L.geoJson(nationalGeoData, {
         style: function(feature) {
             const name = normalizedProvName(feature.properties.Propinsi);
             const found = provinceData.find(p => p.provinsi === name);
@@ -310,13 +289,9 @@ function showNationalMap() {
 function drillDown(feature, layer) {
     const provName = normalizedProvName(feature.properties.Propinsi);
     
-    if (!regencyGeoJSON) {
-        alert("Sabar, data detail kabupaten sedang dimuat...");
-        return;
-    }
-
-    if (regencyGeoJSON === "FAILED") {
-        alert("Gagal memuat detail wilayah. \n\nHal ini biasanya terjadi jika Anda membuka file HTML secara langsung. Silakan jalankan menggunakan 'Live Server' atau server lokal lainnya.");
+    // regencyGeoData sudah tersedia secara global
+    if (!regencyGeoData) {
+        console.error("Data regencyGeoData tidak ditemukan.");
         return;
     }
 
@@ -324,7 +299,7 @@ function drillDown(feature, layer) {
     document.getElementById('mapBackBtn').style.display = 'block';
 
     // Filter features untuk provinsi ini
-    const filteredFeatures = regencyGeoJSON.features.filter(f => normalizedProvName(f.properties.NAME_1) === provName);
+    const filteredFeatures = regencyGeoData.features.filter(f => normalizedProvName(f.properties.NAME_1) === provName);
 
     if (filteredFeatures.length === 0) {
         alert("Batas wilayah detail untuk " + provName + " tidak ditemukan di data GeoJSON.");
