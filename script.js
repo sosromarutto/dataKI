@@ -50,6 +50,28 @@ const rawData = [
     { kota: 'KAB. NGANJUK', jumlah: 1 }
 ];
 
+// Data Provinsi (Sumber: Hasil Agregasi Data)
+const provinceData = [
+    { provinsi: 'DKI JAKARTA', jumlah: 261 },
+    { provinsi: 'JAWA TIMUR', jumlah: 32 },
+    { provinsi: 'JAWA BARAT', jumlah: 31 },
+    { provinsi: 'BANTEN', jumlah: 15 },
+    { provinsi: 'JAWA TENGAH', jumlah: 14 },
+    { provinsi: 'SUMATERA UTARA', jumlah: 8 },
+    { provinsi: 'DI YOGYAKARTA', jumlah: 6 },
+    { provinsi: 'KEPULAUAN RIAU', jumlah: 2 },
+    { provinsi: 'KALIMANTAN BARAT', jumlah: 2 },
+    { provinsi: 'SUMATERA BARAT', jumlah: 2 },
+    { provinsi: 'NUSA TENGGARA BARAT', jumlah: 1 },
+    { provinsi: 'KALIMANTAN TIMUR', jumlah: 1 },
+    { provinsi: 'LAMPUNG', jumlah: 1 },
+    { provinsi: 'RIAU', jumlah: 1 },
+    { provinsi: 'KALIMANTAN SELATAN', jumlah: 1 },
+    { provinsi: 'ACEH', jumlah: 1 },
+    { provinsi: 'SULAWESI TENGGARA', jumlah: 1 },
+    { provinsi: 'BALI', jumlah: 1 }
+];
+
 // Mengurutkan data dari jumlah terbanyak ke terkecil
 const sortedData = [...rawData].sort((a, b) => b.jumlah - a.jumlah);
 
@@ -57,6 +79,7 @@ const sortedData = [...rawData].sort((a, b) => b.jumlah - a.jumlah);
 document.addEventListener('DOMContentLoaded', () => {
     populateTable();
     renderChart();
+    renderMap();
 });
 
 // Fungsi untuk mengisi tabel
@@ -166,4 +189,84 @@ function renderChart() {
             }
         }
     });
+}
+
+// Fungsi untuk menentukan warna provinsi berdasarkan jumlah pengaduan
+function getProvinceColor(jumlah) {
+    if (!jumlah || jumlah === 0) return '#1e293b'; // Default / no data (dark slate)
+    if (jumlah > 100) return '#1e3a8a'; // Paling banyak (biru sangat tua)
+    if (jumlah > 30)  return '#1d4ed8'; // Biru tua
+    if (jumlah > 10)  return '#2563eb'; // Biru sedang
+    if (jumlah > 5)   return '#3b82f6'; // Biru standar
+    if (jumlah > 0)   return '#60a5fa'; // Biru muda (paling sedikit)
+    return '#1e293b';
+}
+
+// Fungsi untuk merender peta Indonesia menggunakan Leaflet
+function renderMap() {
+    const map = L.map('indonesiaMap', {
+        zoomControl: true,
+        attributionControl: false,
+        scrollWheelZoom: false // Disable scroll wheel zoom for better page scrolling
+    }).setView([-2.5489, 118.0148], 5);
+
+    // Fetch GeoJSON Indonesia
+    fetch('https://raw.githubusercontent.com/superpikar/indonesia-geojson/master/indonesia-province-simple.json')
+        .then(response => response.json())
+        .then(data => {
+            L.geoJson(data, {
+                style: function(feature) {
+                    const provName = feature.properties.Propinsi ? feature.properties.Propinsi.toUpperCase() : '';
+                    const found = provinceData.find(p => p.provinsi === provName || provName.includes(p.provinsi) || p.provinsi.includes(provName));
+                    const jumlah = found ? found.jumlah : 0;
+                    return {
+                        fillColor: getProvinceColor(jumlah),
+                        weight: 1,
+                        opacity: 1,
+                        color: 'rgba(255, 255, 255, 0.2)', // Border antar provinsi
+                        fillOpacity: 0.9
+                    };
+                },
+                onEachFeature: function(feature, layer) {
+                    const provName = feature.properties.Propinsi || 'Tidak Diketahui';
+                    const upName = provName.toUpperCase();
+                    const found = provinceData.find(p => p.provinsi === upName || upName.includes(p.provinsi) || p.provinsi.includes(upName));
+                    const jumlah = found ? found.jumlah : 0;
+                    
+                    const popupContent = `<div style="text-align: center;">
+                        <strong style="font-size: 1.1em; color: #fff;">${provName}</strong><br/>
+                        <span style="color: #60a5fa; font-weight: bold; font-size: 1.2em;">${jumlah}</span><span style="color: #94a3b8;"> Pengaduan</span>
+                    </div>`;
+                    
+                    layer.bindTooltip(popupContent, {
+                        sticky: true,
+                        className: 'custom-tooltip',
+                        direction: 'top'
+                    });
+                    
+                    layer.on({
+                        mouseover: function(e) {
+                            const l = e.target;
+                            l.setStyle({
+                                weight: 2,
+                                color: '#fff',
+                                fillOpacity: 1
+                            });
+                            if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                                l.bringToFront();
+                            }
+                        },
+                        mouseout: function(e) {
+                            // Reset style
+                            l.setStyle({
+                                weight: 1,
+                                color: 'rgba(255, 255, 255, 0.2)',
+                                fillOpacity: 0.9
+                            });
+                        }
+                    });
+                }
+            }).addTo(map);
+        })
+        .catch(err => console.error("Gagal memuat data peta: ", err));
 }

@@ -110,6 +110,9 @@ main {
     main {
         grid-template-columns: 3fr 2fr;
     }
+    .map-card {
+        grid-column: 1 / -1;
+    }
 }
 
 /* Cards (Glassmorphism) */
@@ -130,6 +133,10 @@ main {
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 0 20px var(--glow-color);
 }
 
+.map-card {
+    animation-delay: 0.1s;
+}
+
 .chart-card {
     animation-delay: 0.2s;
 }
@@ -144,6 +151,33 @@ main {
     color: var(--text-primary);
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 0.5rem;
+}
+
+/* Map specific styles */
+.map-container {
+    height: 500px;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.leaflet-popup-content-wrapper, .leaflet-popup-tip, .leaflet-tooltip {
+    background: rgba(15, 23, 42, 0.95) !important;
+    color: #fff !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+}
+
+.leaflet-tooltip-left::before { border-left-color: rgba(15, 23, 42, 0.95) !important; }
+.leaflet-tooltip-right::before { border-right-color: rgba(15, 23, 42, 0.95) !important; }
+.leaflet-tooltip-top::before { border-top-color: rgba(15, 23, 42, 0.95) !important; }
+.leaflet-tooltip-bottom::before { border-bottom-color: rgba(15, 23, 42, 0.95) !important; }
+
+.leaflet-container {
+    background: rgba(0, 0, 0, 0.2) !important;
+    border-radius: 12px;
 }
 
 /* Chart Container */
