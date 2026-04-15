@@ -72,30 +72,52 @@ const provinceData = [
     { provinsi: 'BALI', jumlah: 1 }
 ];
 
-// Mengurutkan data dari jumlah terbanyak ke terkecil
-const sortedData = [...rawData].sort((a, b) => b.jumlah - a.jumlah);
+let currentChart = null;
 
 // Inisialisasi setelah DOM dimuat
 document.addEventListener('DOMContentLoaded', () => {
-    populateTable();
-    renderChart();
-    renderMap();
+    updateDashboardView(); // Render tabel & chart pertama kali
+    renderMap();           // Render peta (statis berdasarkan provinsi)
 });
 
+// Fungsi untuk mengganti data berdasarkan dropdown
+function updateDashboardView() {
+    const selector = document.getElementById('viewSelector');
+    const selectedView = selector.value;
+    
+    // Ambil data dari data.js
+    const dataToRender = dashboardData[selectedView] || [];
+    
+    // Update Judul pada Header Tabel dan Chart jika perlu
+    let columnHeader = "Kategori Data";
+    if (selectedView === "Kota") columnHeader = "Kota";
+    else if (selectedView === "Rezim") columnHeader = "Rezim (Unit)";
+    else if (selectedView === "Bulan") columnHeader = "Bulan (01-12)";
+    else if (selectedView === "Kategori") columnHeader = "Kategori Pengaduan";
+    else if (selectedView === "AsalPemohon") columnHeader = "Asal Pemohon";
+    else if (selectedView === "Kanal") columnHeader = "Kanal Masuk";
+    else if (selectedView === "Status") columnHeader = "Status Laporan";
+
+    document.querySelector('#complaintTable th:nth-child(2)').textContent = columnHeader;
+
+    populateTable(dataToRender);
+    renderChart(dataToRender);
+}
+
 // Fungsi untuk mengisi tabel
-function populateTable() {
+function populateTable(dataArray) {
     const tbody = document.querySelector('#complaintTable tbody');
     tbody.innerHTML = '';
 
-    sortedData.forEach((item, index) => {
+    dataArray.forEach((item, index) => {
         const tr = document.createElement('tr');
         
         // Animasi keterlambatan untuk setiap baris
-        tr.style.animation = `fadeInUp 0.5s ease-out ${0.1 * index}s both`;
+        tr.style.animation = `fadeInUp 0.5s ease-out ${Math.min(0.05 * index, 1.5)}s both`;
 
         tr.innerHTML = `
             <td>${index + 1}</td>
-            <td style="font-weight: 600;">${item.kota}</td>
+            <td style="font-weight: 600;">${item.label}</td>
             <td><span class="count-badge">${item.jumlah.toLocaleString('id-ID')}</span></td>
         `;
         tbody.appendChild(tr);
@@ -103,7 +125,7 @@ function populateTable() {
 }
 
 // Fungsi untuk merender grafik menggunakan Chart.js
-function renderChart() {
+function renderChart(dataArray) {
     const ctx = document.getElementById('complaintChart').getContext('2d');
     
     // Gradient untuk batang grafik
@@ -115,15 +137,20 @@ function renderChart() {
     hoverGradient.addColorStop(0, '#a78bfa'); 
     hoverGradient.addColorStop(1, '#60a5fa');
 
-    // Extract label dan data
-    const labels = sortedData.map(item => item.kota);
-    const dataValues = sortedData.map(item => item.jumlah);
+    // Extract label dan data (batasi maksimal 30 agar chart tidak terlalu sesak)
+    const renderData = dataArray.slice(0, 30);
+    const labels = renderData.map(item => item.label);
+    const dataValues = renderData.map(item => item.jumlah);
 
     // Konfigurasi Chart
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.font.family = "'Outfit', sans-serif";
 
-    new Chart(ctx, {
+    if (currentChart) {
+        currentChart.destroy(); // Hancurkan chart lama sebelum membuat yang baru
+    }
+
+    currentChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,

@@ -100,6 +100,42 @@ header p {
     font-size: 1.1rem;
 }
 
+.filter-container {
+    margin-top: 1.5rem;
+    animation: fadeInUp 1s ease-out 0.2s both;
+}
+
+.filter-container label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-right: 0.5rem;
+}
+
+#viewSelector {
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    outline: none;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+#viewSelector:hover, #viewSelector:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+}
+
+#viewSelector option {
+    background: #1e293b;
+    color: white;
+}
+
 main {
     display: grid;
     grid-template-columns: 1fr;
